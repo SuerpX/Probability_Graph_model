@@ -12,7 +12,7 @@ from baselines.common.schedules import LinearSchedule
 from gameboard import gameboard
 
 device = torch.device("cuda")
-class VAE_DQNAgent(agent):
+class DQNAgent_Vanila(agent):
     def __init__(self, model, opt, learning = True):
         super().__init__()
         self.memory = ReplayBuffer(500)
@@ -20,13 +20,11 @@ class VAE_DQNAgent(agent):
         self.previous_action = None
         self.previous_legal_actions = None
         self.step = 0
-        self.model_vae = model[0]
-        self.model_dqn = model[1]
-        self.opt_vae = opt[0]
-        self.opt_dqn = opt[1]
-        self.loss_vae = 0
-        self.loss_dqn = 0
+        self.model = model
+        self.opt = opt
+        self.loss = 0
         self.batch_size = 64
+        self.test_q = 0
         #self.test_q = 0
         self.epsilon_schedule = LinearSchedule(2000000,
                                                initial_p=0.99,
@@ -50,6 +48,7 @@ class VAE_DQNAgent(agent):
             action = random.choice(legalActions)
             choice = self.actions[action]
         else:
+            #mark
             state = torch.from_numpy(board).type(torch.FloatTensor).cuda().view(-1, 17, 4, 4)
             action, q_values = self.predict(state, legalActions)
             choice = self.actions[action]
@@ -85,14 +84,13 @@ class VAE_DQNAgent(agent):
         batch = self.memory.sample(self.batch_size)
         (states, actions, legal_actions, reward, next_legal_actions, next_states,
          is_terminal) = batch
-        batch_idx = 1
 
         terminal = torch.tensor(is_terminal).type(torch.cuda.FloatTensor)
         reward = torch.tensor(reward).type(torch.cuda.FloatTensor)
         states = torch.from_numpy(states).type(torch.FloatTensor).cuda().view(-1, 17, 4, 4)
         next_states = torch.from_numpy(next_states).type(torch.FloatTensor).cuda().view(-1, 17, 4, 4)
         # Current Q Values
-        q_actions, q_values, mu, logvar = self.predict_batch(states)
+        _, q_values = self.predict_batch(states)
         batch_index = torch.arange(self.batch_size,
                                    dtype=torch.long)
         #print(actions)
@@ -102,34 +100,28 @@ class VAE_DQNAgent(agent):
         #print(q_values)
 
         # Calculate target
-        q_actions_next, q_values_next, _, _ = self.predict_batch(next_states, legalActions = next_legal_actions)
+        q_actions_next, q_values_next = self.predict_batch(next_states, legalActions = next_legal_actions)
         q_max = q_values_next.max(1)[0].detach()
         q_max = (1 - terminal) * q_max
 
         q_target = reward + 0.99 * q_max
-        recon_batch, mu, logvar = self.model_vae(states)
-        self.opt_vae.zero_grad()
-        self.opt_dqn.zero_grad()
-        loss_vae = self.model_vae.loss_function(recon_batch, states, mu, logvar)
-        loss_dqn = self.model_dqn.loss_function(q_target, q_values)
+        self.opt.zero_grad()
+        loss = self.model.loss_function(q_target, q_values)
 
-        loss_vae.backward()
-        loss_dqn.backward()
-
-        self.opt_vae.step()
-        self.opt_dqn.step()
+        loss.backward()
+        
+        self.opt.step()
         #train_loss = loss_vae.item() + loss_dqn.item()
 
 
-        self.loss_vae += loss_vae.item() / len(states)
-        self.loss_dqn += loss_dqn.item() / len(states)
+        self.loss += loss.item() / len(states)
 
 
     def predict_batch(self, input, legalActions = None):
         input = input
         #print(legalActions)
 
-        q_values, mu, logvar = self.model_dqn(input)
+        q_values = self.model(input)
         
         if legalActions is None:
             values, q_actions = q_values.max(1)
@@ -138,6 +130,9 @@ class VAE_DQNAgent(agent):
             while isNotlegal:
                 isNotlegal = False
                 values, q_actions = q_values.max(1)
+                #print(q_values)
+                #print(values)
+                #print(q_actions)
                 for i, action in enumerate(q_actions):
                     #print(legalActions[i])
 
@@ -150,20 +145,18 @@ class VAE_DQNAgent(agent):
                 #         print(q_values)
                 # print("*********************")
 
-        return q_actions, q_values, mu, logvar
+        return q_actions, q_values
 
     def predict(self, input, legalActions):
-        q_values, mu, logvar = self.model_dqn(input)
+        q_values = self.model(input)
         isNotlegal = True
         while isNotlegal:
+            #mark
             action = torch.argmax(q_values)
             if action in legalActions:
                 isNotlegal = False
             else:
-                #print(q_values)
                 q_values[0, action] = -1
-                #print(q_values)
-                #input()
 
         return action.item(), q_values
 

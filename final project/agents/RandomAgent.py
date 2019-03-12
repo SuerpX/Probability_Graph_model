@@ -36,8 +36,8 @@ class randomAgent(agent):
         if (self.previous_state is not None and
                 self.previous_action is not None):
             self.memory.add(self.previous_state,
-                    self.previous_action,
-                    self.gb.currentReward,
+                    self.previous_action, 0,
+                    self.gb.currentReward, 0,
                     board, 0)
         self.previous_state = board
         self.previous_action = a
@@ -50,7 +50,7 @@ class randomAgent(agent):
             return
         
         batch = self.memory.sample(self.batch_size)
-        (states, actions, reward, next_states,
+        (states, actions, _, reward, _, next_states,
          is_terminal) = batch
         batch_idx = 1
         #print(states[0])
