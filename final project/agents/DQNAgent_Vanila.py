@@ -81,10 +81,11 @@ class DQNAgent_Vanila(agent):
         board = deepcopy(self.gb.board)
         board = oneHotMap(board)
 
-        legalActions = self.legal_actions(deepcopy(self.gb.board))
+        #legalActions = self.legal_actions(deepcopy(self.gb.board))
+        #print(legalActions)
         self.memory.add(self.previous_state,
         self.previous_action, self.previous_legal_actions,
-        self.gb.currentReward, legalActions,
+        self.gb.currentReward, [],
         board, 1)
         self.reset()
 
@@ -106,23 +107,22 @@ class DQNAgent_Vanila(agent):
         states = torch.from_numpy(states).type(torch.FloatTensor).cuda().view(-1, 17, 4, 4)
         next_states = torch.from_numpy(next_states).type(torch.FloatTensor).cuda().view(-1, 17, 4, 4)
         # Current Q Values
+
         _, q_values = self.predict_batch(states)
         batch_index = torch.arange(self.batch_size,
                                    dtype=torch.long)
         #print(actions)
         #print(q_values)
-        self.test_q = q_values
+        self.test_q = terminal
         q_values = q_values[batch_index, actions]
         #print(q_values)
-
         # Calculate target
         q_actions_next, q_values_next = self.predict_batch(next_states, legalActions = next_legal_actions)
         #print(q_values_next)
         q_max = q_values_next.max(1)[0].detach()
-        if sum(terminal == 1):
-            print("you")
+        #if sum(terminal == 1) > 0:
+        #    print("you")
         q_max = (1 - terminal) * q_max
-
         q_target = reward + 0.99 * q_max
         self.opt.zero_grad()
         loss = self.model.loss_function(q_target, q_values)
@@ -142,7 +142,6 @@ class DQNAgent_Vanila(agent):
         #print(legalActions)
 
         q_values = self.model(input)
-        
         if legalActions is None:
             values, q_actions = q_values.max(1)
         else:
@@ -155,6 +154,8 @@ class DQNAgent_Vanila(agent):
                 #print(q_actions)
                 for i, action in enumerate(q_actions):
                     #print(legalActions[i])
+                    if len(legalActions[i]) == 0:
+                        continue
 
                     if action.item() not in legalActions[i]:
                         isNotlegal = True
@@ -188,10 +189,10 @@ class DQNAgent_Vanila(agent):
             if changed:
                 legalActions.append(i)
         return legalActions
-
+    '''
     def play(self, gb):
         self.gb = gb
         while not self.gb.islost:
             self.gb.takeAction(self.action())
         #print(1)
-        self.end_episode()
+    '''

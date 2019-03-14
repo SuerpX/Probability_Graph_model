@@ -15,4 +15,6 @@ class agent():
         self.gb = gb
         while not self.gb.islost:
             self.gb.takeAction(self.action())
-        
+        self.end_episode()
+    def end_episode(self):
+        pass
