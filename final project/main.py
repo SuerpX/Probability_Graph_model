@@ -5,6 +5,7 @@ from agents.RandomAgent import randomAgent
 from agents.testAgent import testAgent
 from agents.VAE_DQNAgent import VAE_DQNAgent
 from agents.DQNAgent_Vanila import DQNAgent_Vanila
+from agents.DQNAgent_Vanila_norm import DQNAgent_Vanila_norm
 #from agents.TDAgent import QLAgent, SARSAAgent
 from gameboard import gameboard
 import time
@@ -18,6 +19,7 @@ from models.vae_my import VAE_DQN
 from models.vae_dqn_cnn import VAE_DQN_CNN
 from models.vae_cnn import VAE_CNN
 from models.dqn_vanila import DQN_Vanila
+from models.dqn_vanila_norm import DQN_Vanila_norm
 import numpy as np
 import models.vae_vanila
 from torch import nn, optim
@@ -26,7 +28,43 @@ import tensorflow as tf
 np.set_printoptions(precision = 4, suppress = True)
 
 def main():
+    """
+
+    #DQN
+
+    tscore = 0
+    #vae_dqn = VAE_DQN_CNN().cuda()
+    dqn = DQN_Vanila_norm().cuda()
     
+    optimizer = optim.Adam(dqn.parameters(), lr=1e-4)
+    '''
+    for name, param in vae_dqn[0].named_parameters():
+        print(name)
+    '''
+    agent = DQNAgent_Vanila_norm(dqn, optimizer)
+    acc = 0
+    for i in range(100000):
+        agent.enableLearning()
+        dqn.train()
+        gb = gameboard(4, isPrint = False)
+        agent.play(gb)
+        tscore += gb.score
+        #print(agent.test_q)
+        #input()
+        if i % 100 == 0:
+            dqn.eval()
+            agent.disableLearning()
+            test_score = 0
+            test_num = 30
+            for _ in range(test_num):
+                gb = gameboard(4, isPrint = False)
+                agent.play(gb)
+                test_score += gb.score
+            print("\ntest score: {}".format(test_score / test_num))
+            
+        print("\repoch: {}, loss: {}, step: {}".format(i, agent.loss / agent.step, agent.step), end = '')
+    print(tscore/1000)
+    """
     #DQN
 
     tscore = 0
@@ -61,8 +99,8 @@ def main():
             
         print("\repoch: {}, loss: {}, step: {}".format(i, agent.loss / agent.step, agent.step), end = '')
     print(tscore/1000)
+    
     """
-
     #VAE_DQN
     tscore = 0
     #vae_dqn = VAE_DQN_CNN().cuda()
@@ -109,7 +147,7 @@ def main():
     vae_dqn = VAE_CNN().cuda()
     #vae_dqn = vae.VAE().cuda()
     testa = np.array(
-    	[[64., 32., 2 ** 14, 16.],
+        [[64., 32., 2 ** 14, 16.],
         [16., 2., 4., 8.],
         [1024., 2 ** 15, 32., 2 ** 16],
         [4096., 8., 16., 0.]])

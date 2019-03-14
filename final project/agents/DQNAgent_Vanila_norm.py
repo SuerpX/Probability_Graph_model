@@ -12,10 +12,10 @@ from baselines.common.schedules import LinearSchedule
 from gameboard import gameboard
 
 device = torch.device("cuda")
-class DQNAgent_Vanila(agent):
+class DQNAgent_Vanila_norm(agent):
     def __init__(self, model, opt, learning = True):
         super().__init__()
-        self.memory = ReplayBuffer(6000)
+        self.memory = ReplayBuffer(500)
         self.previous_state = None
         self.previous_action = None
         self.previous_legal_actions = None
@@ -23,10 +23,10 @@ class DQNAgent_Vanila(agent):
         self.model = model
         self.opt = opt
         self.loss = 0
-        self.batch_size = 512
+        self.batch_size = 64
         self.test_q = 0
         #self.test_q = 0
-        self.epsilon_schedule = LinearSchedule(2000000,
+        self.epsilon_schedule = LinearSchedule(1000000,
                                                initial_p=0.99,
                                                final_p=0.01)
         self.learning = learning
@@ -41,7 +41,7 @@ class DQNAgent_Vanila(agent):
         
         legalActions = self.legal_actions(deepcopy(self.gb.board))
         board = deepcopy(self.gb.board)
-        board = oneHotMap(board)
+        board = normalization(board)
 
         if self.learning and self.should_explore():
             q_values = None
@@ -49,7 +49,7 @@ class DQNAgent_Vanila(agent):
             choice = self.actions[action]
         else:
             #mark
-            state = torch.from_numpy(board).type(torch.FloatTensor).cuda().view(-1, 17, 4, 4)
+            state = torch.from_numpy(board).type(torch.FloatTensor).cuda().view(-1, 4, 4)
             action, q_values = self.predict(state, legalActions)
             choice = self.actions[action]
         if self.learning:
@@ -87,8 +87,8 @@ class DQNAgent_Vanila(agent):
 
         terminal = torch.tensor(is_terminal).type(torch.cuda.FloatTensor)
         reward = torch.tensor(reward).type(torch.cuda.FloatTensor)
-        states = torch.from_numpy(states).type(torch.FloatTensor).cuda().view(-1, 17, 4, 4)
-        next_states = torch.from_numpy(next_states).type(torch.FloatTensor).cuda().view(-1, 17, 4, 4)
+        states = torch.from_numpy(states).type(torch.FloatTensor).cuda().view(-1, 4, 4)
+        next_states = torch.from_numpy(next_states).type(torch.FloatTensor).cuda().view(-1, 4, 4)
         # Current Q Values
         _, q_values = self.predict_batch(states)
         batch_index = torch.arange(self.batch_size,

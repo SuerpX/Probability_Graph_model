@@ -16,6 +16,7 @@ def reverseOneHotMap(state):
     target_state = 2 ** np.argmax(np.reshape(target_state, (17,4,4)), axis = 0)
     target_state[target_state == 1] = 0
     return target_state
+
 def normalization(state):
     state = np.copy(state)
     state[state == 0] = 1
