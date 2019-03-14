@@ -15,7 +15,7 @@ device = torch.device("cuda")
 class DQNAgent_Vanila(agent):
     def __init__(self, model, opt, learning = True):
         super().__init__()
-        self.memory = ReplayBuffer(6000)
+        self.memory = ReplayBuffer(4000)
         self.previous_state = None
         self.previous_action = None
         self.previous_legal_actions = None
@@ -23,7 +23,7 @@ class DQNAgent_Vanila(agent):
         self.model = model
         self.opt = opt
         self.loss = 0
-        self.batch_size = 512
+        self.batch_size = 256
         self.test_q = 0
         #self.test_q = 0
         self.epsilon_schedule = LinearSchedule(2000000,
@@ -69,13 +69,29 @@ class DQNAgent_Vanila(agent):
         return choice
 
     def enableLearning(self):
-        self.previous_state = None
-        self.previous_action = None
-        self.previous_legal_actions = None
         self.learning = True
+        self.reset()
 
     def disableLearning(self):
         self.learning = False
+    def end_episode(self):
+        if not self.learning:
+            return
+        #print(self.gb.board)
+        board = deepcopy(self.gb.board)
+        board = oneHotMap(board)
+
+        legalActions = self.legal_actions(deepcopy(self.gb.board))
+        self.memory.add(self.previous_state,
+        self.previous_action, self.previous_legal_actions,
+        self.gb.currentReward, legalActions,
+        board, 1)
+        self.reset()
+
+    def reset(self):
+        self.previous_state = None
+        self.previous_action = None
+        self.previous_legal_actions = None
 
     def update(self):
         if self.step < self.batch_size:
@@ -101,7 +117,10 @@ class DQNAgent_Vanila(agent):
 
         # Calculate target
         q_actions_next, q_values_next = self.predict_batch(next_states, legalActions = next_legal_actions)
+        #print(q_values_next)
         q_max = q_values_next.max(1)[0].detach()
+        if sum(terminal == 1):
+            print("you")
         q_max = (1 - terminal) * q_max
 
         q_target = reward + 0.99 * q_max
@@ -169,3 +188,10 @@ class DQNAgent_Vanila(agent):
             if changed:
                 legalActions.append(i)
         return legalActions
+
+    def play(self, gb):
+        self.gb = gb
+        while not self.gb.islost:
+            self.gb.takeAction(self.action())
+        #print(1)
+        self.end_episode()
