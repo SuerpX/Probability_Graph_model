@@ -53,11 +53,14 @@ class DQNAgent_Vanila(agent):
             action, q_values = self.predict(state, legalActions)
             choice = self.actions[action]
         if self.learning:
+            reward = self.gb.currentReward
+            if reward != 0:
+                reward = np.log2(reward)
             if (self.previous_state is not None and
                     self.previous_action is not None):
                 self.memory.add(self.previous_state,
                         self.previous_action, self.previous_legal_actions,
-                        self.gb.currentReward, legalActions,
+                        reward, legalActions,
                         board, 0)
 
         self.previous_state = board
@@ -120,9 +123,15 @@ class DQNAgent_Vanila(agent):
         q_actions_next, q_values_next = self.predict_batch(next_states, legalActions = next_legal_actions)
         #print(q_values_next)
         q_max = q_values_next.max(1)[0].detach()
-        #if sum(terminal == 1) > 0:
-        #    print("you")
+
         q_max = (1 - terminal) * q_max
+        # if sum(terminal == 1) > 0:
+        #     print(reward)
+        #     print( (terminal == 1).nonzero())
+        #     print(terminal)
+        #     print(next_legal_actions)
+        #     print(q_max)
+        #     input()
         q_target = reward + 0.99 * q_max
         self.opt.zero_grad()
         loss = self.model.loss_function(q_target, q_values)

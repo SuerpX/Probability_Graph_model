@@ -99,7 +99,7 @@ def main():
             
         print("\repoch: {}, loss: {}, step: {}".format(i, agent.loss / agent.step, agent.step), end = '')
     print(tscore/1000)
-    
+   
     """
     #VAE_DQN
     tscore = 0
