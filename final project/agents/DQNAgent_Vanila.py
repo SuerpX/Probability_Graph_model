@@ -15,7 +15,7 @@ device = torch.device("cuda")
 class DQNAgent_Vanila(agent):
     def __init__(self, model, opt, learning = True):
         super().__init__()
-        self.memory = ReplayBuffer(4000)
+        self.memory = ReplayBuffer(6000)
         self.previous_state = None
         self.previous_action = None
         self.previous_legal_actions = None
@@ -26,7 +26,7 @@ class DQNAgent_Vanila(agent):
         self.batch_size = 256
         self.test_q = 0
         #self.test_q = 0
-        self.epsilon_schedule = LinearSchedule(2000000,
+        self.epsilon_schedule = LinearSchedule(1000000,
                                                initial_p=0.99,
                                                final_p=0.01)
         self.learning = learning

@@ -78,7 +78,10 @@ def main():
     '''
     agent = DQNAgent_Vanila(dqn, optimizer)
     acc = 0
+    pre_step = 0
+
     for i in range(100000):
+        f = open('results/result_2.txt', 'a')
         agent.enableLearning()
         dqn.train()
         gb = gameboard(4, isPrint = False)
@@ -95,9 +98,14 @@ def main():
                 gb = gameboard(4, isPrint = False)
                 agent.play(gb)
                 test_score += gb.score
-            print("\ntest score: {}".format(test_score / test_num))
-            
-        print("\repoch: {}, loss: {}, step: {}".format(i, agent.loss / agent.step, agent.step), end = '')
+            print_t = "\ntest score: {}\n".format(test_score / test_num)
+            print(print_t, end = '')
+            f.write(print_t)
+        print_r = ("\repoch: {}, loss: {}, total: {}, step: {}      ".format(i, agent.loss / agent.step, agent.step, agent.step - pre_step))
+        print(print_r, end = '')
+        f.write(print_r)
+        pre_step = agent.step
+        f.close()
     print(tscore/1000)
    
     """

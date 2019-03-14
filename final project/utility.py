@@ -21,7 +21,10 @@ def normalization(state):
     state = np.copy(state)
     state[state == 0] = 1
     return np.log2(state)/16
-
+def epsilonDecay(steps, epsilon):
+    if((steps>10000) or (epsilon>0.1 and total_iters%2500==0)):
+        epsilon = epsilon/1.005
+    return epsilon
 
 # Reconstruction + KL divergence losses summed over all elements and batch
 GAME_BOARD_SIZE = 16
