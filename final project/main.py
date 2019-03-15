@@ -28,18 +28,18 @@ import tensorflow as tf
 np.set_printoptions(precision = 4, suppress = True)
 
 def main():
-    # params = {'save_path_checkpoint':'weights/last_weight_dqn_vanila.pt', 
-    # 'save_path': 'results/result_dqn_vanila.txt', 
-    # 'model': DQN_Vanila, 
-    # 'agent': DQNAgent_Vanila,
-    # 'restore': False}
-    params = {'save_path_checkpoint_vae': 'weights/last_weight_vae(vae_dqn).pt',
-    'save_path_checkpoint_dqn': 'weights/last_weight_dqn(vae_dqn).pt',
-    'save_path': 'results/result_vae_dqn.txt', 
-    'model_vae': VAE_CNN, 
-    'model_dqn': VAE_DQN_CNN, 
-    'agent_vae_dqn': VAE_DQNAgent,
+    params = {'save_path_checkpoint':'weights/last_weight_dqn_vanila.pt', 
+    'save_path': 'results/result_dqn_vanila.txt', 
+    'model': DQN_Vanila, 
+    'agent': DQNAgent_Vanila,
     'restore': False}
+    # params = {'save_path_checkpoint_vae': 'weights/last_weight_vae(vae_dqn).pt',
+    # 'save_path_checkpoint_dqn': 'weights/last_weight_dqn(vae_dqn).pt',
+    # 'save_path': 'results/result_vae_dqn.txt', 
+    # 'model_vae': VAE_CNN, 
+    # 'model_dqn': VAE_DQN_CNN, 
+    # 'agent_vae_dqn': VAE_DQNAgent,
+    # 'restore': False}
     """
 
     #DQN
@@ -76,7 +76,6 @@ def main():
             
         print("\repoch: {}, loss: {}, step: {}".format(i, agent.loss / agent.step, agent.step), end = '')
     print(tscore/1000)
-    """
     """
     #DQN
     
@@ -168,7 +167,7 @@ def main():
         pre_step = agent.step
         f.close()
     print(tscore/1000)
-    
+    """
     """
     #VAE
     tscore = 0
