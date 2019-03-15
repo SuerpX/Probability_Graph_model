@@ -15,7 +15,7 @@ device = torch.device("cuda")
 class DQNAgent_Vanila(agent):
     def __init__(self, model, opt, learning = True):
         super().__init__()
-        self.memory = ReplayBuffer(6000)
+        self.memory = ReplayBuffer(3000)
         self.previous_state = None
         self.previous_action = None
         self.previous_legal_actions = None
@@ -23,10 +23,11 @@ class DQNAgent_Vanila(agent):
         self.model = model
         self.opt = opt
         self.loss = 0
-        self.batch_size = 256
+        self.batch_size = 64
         self.test_q = 0
+        self.max_tile = 0
         #self.test_q = 0
-        self.epsilon_schedule = LinearSchedule(1000000,
+        self.epsilon_schedule = LinearSchedule(2000000,
                                                initial_p=0.99,
                                                final_p=0.01)
         self.learning = learning
@@ -40,6 +41,8 @@ class DQNAgent_Vanila(agent):
             self.step += 1
         
         legalActions = self.legal_actions(deepcopy(self.gb.board))
+        if len(legalActions) == 0:
+            print(111111111111111111111111111111111111111)
         board = deepcopy(self.gb.board)
         board = oneHotMap(board)
 
@@ -72,15 +75,22 @@ class DQNAgent_Vanila(agent):
         return choice
 
     def enableLearning(self):
+        self.model.train()
         self.learning = True
+        self.max_tile = 0
         self.reset()
 
     def disableLearning(self):
+        self.model.eval()
         self.learning = False
     def end_episode(self):
         if not self.learning:
+            m = np.max(self.gb.board)
+            if m > self.max_tile:
+                self.max_tile = m
             return
         #print(self.gb.board)
+
         board = deepcopy(self.gb.board)
         board = oneHotMap(board)
 
@@ -93,6 +103,7 @@ class DQNAgent_Vanila(agent):
         self.reset()
 
     def reset(self):
+        
         self.previous_state = None
         self.previous_action = None
         self.previous_legal_actions = None
@@ -112,12 +123,12 @@ class DQNAgent_Vanila(agent):
         # Current Q Values
 
         _, q_values = self.predict_batch(states)
-        batch_index = torch.arange(self.batch_size,
-                                   dtype=torch.long)
+        # batch_index = torch.arange(self.batch_size,
+        #                            dtype=torch.long)
         #print(actions)
         #print(q_values)
-        self.test_q = terminal
-        q_values = q_values[batch_index, actions]
+        
+        q_values = q_values[:, actions]
         #print(q_values)
         # Calculate target
         q_actions_next, q_values_next = self.predict_batch(next_states, legalActions = next_legal_actions)
@@ -147,47 +158,30 @@ class DQNAgent_Vanila(agent):
 
 
     def predict_batch(self, input, legalActions = None):
-        input = input
-        #print(legalActions)
 
         q_values = self.model(input)
         if legalActions is None:
             values, q_actions = q_values.max(1)
         else:
-            isNotlegal = True
-            while isNotlegal:
-                isNotlegal = False
-                values, q_actions = q_values.max(1)
-                #print(q_values)
-                #print(values)
-                #print(q_actions)
-                for i, action in enumerate(q_actions):
-                    #print(legalActions[i])
-                    if len(legalActions[i]) == 0:
-                        continue
-
-                    if action.item() not in legalActions[i]:
-                        isNotlegal = True
-                        # print(i)
-                        # print(action.item())
-                        # print(q_values)
-                        q_values[i, action] = -1
-                #         print(q_values)
-                # print("*********************")
+            q_values_true = torch.full((self.batch_size, 4), -100000000).cuda()
+            for i, action in enumerate(legalActions):
+                q_values_true[i, action] = q_values[i,action]
+            values, q_actions = q_values_true.max(1)
+            q_values = q_values_true
+            #print(q_values_true)
 
         return q_actions, q_values
 
     def predict(self, input, legalActions):
         q_values = self.model(input)
-        isNotlegal = True
-        while isNotlegal:
-            #mark
-            action = torch.argmax(q_values)
-            if action in legalActions:
-                isNotlegal = False
-            else:
-                q_values[0, action] = -1
-
+        for action in range(4):
+            if action not in legalActions:
+                q_values[0, action] = -100000000
+        
+        action = torch.argmax(q_values)
+        if int(action.item()) not in legalActions:
+            print(legalActions, q_values, action)
+            print("!!!!!!!!!!!!!!!!!!!!!!!!!")
         return action.item(), q_values
 
     def legal_actions(self, copy_gb):

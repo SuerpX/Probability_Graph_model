@@ -42,16 +42,16 @@ class ReplayBuffer(object):
             obs_t, action, pre_la, reward, la, obs_tp1, done = data
             obses_t.append(np.array(obs_t, copy=False))
             actions.append(np.array(action, copy=False))
-            pre_leagalActions.append(np.array(pre_la, copy=False))
+            pre_leagalActions.append(pre_la)
             rewards.append(reward)
-            leagalActions.append(np.array(la, copy=False))
+            leagalActions.append(la)
             obses_tp1.append(np.array(obs_tp1, copy=False))
             dones.append(done)
         return (np.array(obses_t),
                 np.array(actions),
-                np.array(pre_leagalActions),
+                pre_leagalActions,
                 np.array(rewards),
-                np.array(leagalActions),
+                leagalActions,
                 np.array(obses_tp1),
                 np.array(dones))
 

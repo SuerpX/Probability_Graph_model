@@ -20,13 +20,13 @@ class DQN(nn.Module):
         super(DQN, self).__init__()
         self.input_dim = LATENT_DIM
         self.fc1  =  nn.Sequential(
-            torch.nn.Linear(self.input_dim, 100),
+            torch.nn.Linear(self.input_dim, 256),
             nn.ReLU()#,
             #nn.BatchNorm1d(100)
         )
 
         self.fc2  =  nn.Sequential(
-            torch.nn.Linear(100, 4)#,
+            torch.nn.Linear(256, 4)#,
             #nn.Sigmoid()
             )
         self.fc1.apply(weights_initialize)

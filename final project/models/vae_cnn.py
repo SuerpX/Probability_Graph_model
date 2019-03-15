@@ -6,40 +6,72 @@ from torch.nn import functional as F
 from torchvision import datasets, transforms
 from torchvision.utils import save_image
 
-GAME_BOARD_SIZE = 16
+GAME_BOARD_SIZE = int(16 / 4)
 LATENT_DIM = 20
 
 class Encoder(nn.Module):
     def __init__(self):
         super(Encoder, self).__init__()
 
-        self.input_dim = 17 # game board is 4 * 4
+        self.input_dim = 17
+        self.latent_dim = 20
         
-        self.latent_dim = LATENT_DIM
-
-        self.encoder_l1  =  nn.Sequential(
-            nn.Conv2d(self.input_dim, 40, kernel_size=3, stride=1, padding=1),
+        self.cnn_l1_a  =  nn.Sequential(
+            nn.Conv2d(self.input_dim, 128, kernel_size=(1, 2), stride=1),
+            nn.ReLU())
+        self.cnn_l1_b  =  nn.Sequential(
+            nn.Conv2d(self.input_dim, 128, kernel_size=(2, 1), stride=1),
             nn.ReLU())
 
-        self.encoder_l2  =  nn.Sequential(
-            nn.Conv2d(40, 40, kernel_size=3, stride=1, padding=1),
+        self.cnn_l2_aa  =  nn.Sequential(
+            nn.Conv2d(128, 128, kernel_size=(1, 2), stride=1),
             nn.ReLU())
-
-        self.encoder_l3 = nn.Sequential(
-            torch.nn.Linear(40 * GAME_BOARD_SIZE, 200),
+        self.cnn_l2_ab  =  nn.Sequential(
+            nn.Conv2d(128, 128, kernel_size=(2, 1), stride=1),
+            nn.ReLU())
+        self.cnn_l2_ba  =  nn.Sequential(
+            nn.Conv2d(128, 128, kernel_size=(1, 2), stride=1),
+            nn.ReLU())
+        self.cnn_l2_bb  =  nn.Sequential(
+            nn.Conv2d(128, 128, kernel_size=(2, 1), stride=1),
+            nn.ReLU())
+        
+        self.fc1 = nn.Sequential(
+            torch.nn.Linear(7424, 256),
             nn.Tanh()
         )
-        self.fc_mu = nn.Linear(200, self.latent_dim)
-        self.fc_sigma = nn.Linear(200, self.latent_dim)
+
+        self.fc_mu = nn.Linear(256, self.latent_dim)
+        self.fc_sigma = nn.Linear(256, self.latent_dim)
 
     def encode(self, x):
-        #print(x.shape)
-        h1 = self.encoder_l1(x)
-        #print(h1.shape)
-        h2 = self.encoder_l2(h1)
+        x_a = self.cnn_l1_a(x)
+        x_b = self.cnn_l1_b(x)
 
-        h3 = self.encoder_l3(h2.view(-1, 40 * GAME_BOARD_SIZE))
-        return self.fc_mu(h3), self.fc_sigma(h3)
+        x_aa = self.cnn_l2_aa(x_a)
+        x_ab = self.cnn_l2_ab(x_a)
+        x_ba = self.cnn_l2_ba(x_b)
+        x_bb = self.cnn_l2_bb(x_b)
+        '''
+        print(x_a.shape)
+        print(x_b.shape)
+        print(x_aa.shape)
+        print(x_ab.shape)
+        print(x_ba.shape)
+        print(x_bb.shape)
+        '''
+
+        x_a = x_a.view(-1, 128 * 4 * 3)
+        x_b = x_b.view(-1, 128 * 3 * 4)
+        x_aa = x_aa.view(-1, 128 * 4 * 2)
+        x_ab = x_ab.view(-1, 128 * 3 * 3)
+        x_ba = x_ba.view(-1, 128 * 3 * 3)
+        x_bb = x_bb.view(-1, 128 * 2 * 4)
+
+        x = torch.cat((x_a, x_b, x_aa, x_ab,x_ba, x_bb,), dim = 1)
+
+        x = self.fc1(x)
+        return self.fc_mu(x), self.fc_sigma(x)
 
     def forward(self, x):
         mu, logvar = self.encode(x)
@@ -53,31 +85,83 @@ class Decoder(nn.Module):
 
         super(Decoder, self).__init__()
         self.decoder_l1 = nn.Sequential(
-            torch.nn.Linear(self.latent_dim, 200),
+            torch.nn.Linear(self.latent_dim, 256),
             nn.Tanh()
         )
         self.decoder_l2 = nn.Sequential(
-            torch.nn.Linear(200, 40 * GAME_BOARD_SIZE),
+            torch.nn.Linear(256, 7424),
             nn.ReLU())
-        
-        self.decoder_l3 = nn.Sequential(
-            nn.ConvTranspose2d(40, 40, kernel_size=3, stride=1, padding=1),
-            nn.ReLU()
+
+        self.decnn_l2_aa  =  nn.Sequential(
+            nn.ConvTranspose2d(128, 128, kernel_size=(1, 2), stride=1),
+            nn.ReLU())
+        self.decnn_l2_ab  =  nn.Sequential(
+            nn.ConvTranspose2d(128, 128, kernel_size=(2, 1), stride=1),
+            nn.ReLU())
+        self.decnn_l2_ba  =  nn.Sequential(
+            nn.ConvTranspose2d(128, 128, kernel_size=(1, 2), stride=1),
+            nn.ReLU())
+        self.decnn_l2_bb  =  nn.Sequential(
+            nn.ConvTranspose2d(128, 128, kernel_size=(2, 1), stride=1),
+            nn.ReLU())
+
+        self.decnn_l3_a  =  nn.Sequential(
+            nn.ConvTranspose2d(128, self.output_dim, kernel_size=(1, 2), stride=1)#,
+            #nn.ReLU()
+            )
+        self.decnn_l3_b  =  nn.Sequential(
+            nn.ConvTranspose2d(128, self.output_dim, kernel_size=(2, 1), stride=1)#,
+            #nn.ReLU()
             )
 
-        self.decoder_l4 = nn.Sequential(
-            nn.ConvTranspose2d(40, self.output_dim, kernel_size=3, stride=1, padding=1)
-            )
+
     def decode(self, z):
-        h4 = self.decoder_l1(z)
+        x = self.decoder_l1(z)
         #print(h3.shape)
-        h5 = self.decoder_l2(h4)
+        x = self.decoder_l2(x)
         #print(h4.shape)
-        h5 = h5.view(-1, 40, 4, 4)
-        h6 = self.decoder_l3(h5)
-        h7 = self.decoder_l4(h6)
-        #print(h4.shape)
-        return torch.sigmoid(h7)
+        '''
+        x_a = x_a.view(-1, 128 * 4 * 3)
+        x_b = x_b.view(-1, 128 * 3 * 4)
+        x_aa = x_aa.view(-1, 128 * 4 * 2)
+        x_ab = x_ab.view(-1, 128 * 3 * 3)
+        x_ba = x_ba.view(-1, 128 * 3 * 3)
+        x_bb = x_bb.view(-1, 128 * 2 * 4)
+        '''
+        x_a_len = 128 * 4 * 3
+        x_b_len = 128 * 3 * 4 + x_a_len
+        x_aa_len = 128 * 4 * 2 + x_b_len
+        x_ab_len = 128 * 3 * 3 + x_aa_len
+        x_ba_len = 128 * 3 * 3 + x_ab_len
+        x_bb_len = 128 * 2 * 4 + x_ba_len
+
+        if x.shape[0] != 1:
+            x_aa = x[:, x_b_len : x_aa_len].view(-1, 128, 4, 2)
+            x_ab = x[:, x_aa_len : x_ab_len].view(-1, 128, 3, 3)
+            x_ba = x[:, x_ab_len : x_ba_len].view(-1, 128, 3, 3)
+            x_bb = x[:, x_ba_len : x_bb_len].view(-1, 128, 2, 4)
+        else:
+            x_aa = x[:, x_b_len : x_aa_len].view(1, 128, 4, 2)
+            x_ab = x[:, x_aa_len : x_ab_len].view(1, 128, 3, 3)
+            x_ba = x[:, x_ab_len : x_ba_len].view(1, 128, 3, 3)
+            x_bb = x[:, x_ba_len : x_bb_len].view(1, 128, 2, 4)
+
+        '''
+        print(x_aa.shape)
+        print(x_ab.shape)
+        print(x_ba.shape)
+        print(x_bb.shape)
+        '''
+
+        x_a = (self.decnn_l2_aa(x_aa) + self.decnn_l2_ab(x_ab)).mul(0.5)
+        x_b = (self.decnn_l2_ba(x_ba) + self.decnn_l2_bb(x_bb)).mul(0.5)
+        '''
+        print(x_a.shape)
+        print(x_b.shape)
+        '''
+        x = (self.decnn_l3_a(x_a) + self.decnn_l3_b(x_b)).mul(0.5)
+
+        return torch.sigmoid(x)
 
     def forward(self, x):
         return self.decode(x)
