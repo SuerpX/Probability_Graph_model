@@ -57,8 +57,8 @@ class DQNAgent_Vanila(agent):
             choice = self.actions[action]
         if self.learning:
             reward = self.gb.currentReward
-            if reward != 0:
-                reward = np.log2(reward)
+            #if reward != 0:
+            #    reward = np.log2(reward)
             if (self.previous_state is not None and
                     self.previous_action is not None):
                 self.memory.add(self.previous_state,
