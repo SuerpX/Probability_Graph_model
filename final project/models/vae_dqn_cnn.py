@@ -7,7 +7,7 @@ from torchvision import datasets, transforms
 from torchvision.utils import save_image
 
 GAME_BOARD_SIZE = 16
-LATENT_DIM = 20
+LATENT_DIM = 40
 
 def weights_initialize(module):
     if type(module) == nn.Linear:

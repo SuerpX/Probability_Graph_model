@@ -7,14 +7,14 @@ from torchvision import datasets, transforms
 from torchvision.utils import save_image
 
 GAME_BOARD_SIZE = int(16 / 4)
-LATENT_DIM = 20
+LATENT_DIM = 40
 
 class Encoder(nn.Module):
     def __init__(self):
         super(Encoder, self).__init__()
 
         self.input_dim = 17
-        self.latent_dim = 20
+        self.latent_dim = LATENT_DIM
         
         self.cnn_l1_a  =  nn.Sequential(
             nn.Conv2d(self.input_dim, 128, kernel_size=(1, 2), stride=1),

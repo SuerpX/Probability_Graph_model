@@ -28,18 +28,21 @@ import tensorflow as tf
 np.set_printoptions(precision = 4, suppress = True)
 
 def main():
-    params = {'save_path_checkpoint':'weights/last_weight_dqn_vanila.pt', 
-    'save_path': 'results/result_dqn_vanila.txt', 
-    'model': DQN_Vanila, 
-    'agent': DQNAgent_Vanila,
+    # params = {'save_path_checkpoint':'weights/last_weight_dqn_vanila.pt', 
+    # 'save_path': 'results/result_dqn_vanila_40.txt', 
+    # 'model': DQN_Vanila, 
+    # 'agent': DQNAgent_Vanila,
+    # 'restore': False,
+    # 'epoch' : 2588,
+    # 'step' : 552907
+    # }
+    params = {'save_path_checkpoint_vae': 'weights/last_weight_vae(vae_dqn).pt',
+    'save_path_checkpoint_dqn': 'weights/last_weight_dqn(vae_dqn).pt',
+    'save_path': 'results/result_vae_dqn.txt', 
+    'model_vae': VAE_CNN, 
+    'model_dqn': VAE_DQN_CNN, 
+    'agent_vae_dqn': VAE_DQNAgent,
     'restore': False}
-    # params = {'save_path_checkpoint_vae': 'weights/last_weight_vae(vae_dqn).pt',
-    # 'save_path_checkpoint_dqn': 'weights/last_weight_dqn(vae_dqn).pt',
-    # 'save_path': 'results/result_vae_dqn.txt', 
-    # 'model_vae': VAE_CNN, 
-    # 'model_dqn': VAE_DQN_CNN, 
-    # 'agent_vae_dqn': VAE_DQNAgent,
-    # 'restore': False}
     """
 
     #DQN
@@ -78,7 +81,7 @@ def main():
     print(tscore/1000)
     """
     #DQN
-    
+    """
     tscore = 0
     #vae_dqn = VAE_DQN_CNN().cuda()
     dqn = params['model']().cuda()
@@ -91,9 +94,13 @@ def main():
     agent = params['agent'](dqn, optimizer)
     acc = 0
     pre_step = 0
+    e = 0
     if params['restore']:
         agent.model.load_state_dict(torch.load(params['save_path_checkpoint']))
-    for i in range(100000):
+        e = params['epoch'] + 1
+        agent.reconver_step = params['step']
+
+    for i in range(e, 100000):
         f = open(params['save_path'], 'a')
 
         if i % 50 == 0:
@@ -119,8 +126,8 @@ def main():
         pre_step = agent.step
         f.close()
     print(tscore/1000)
-   
     """
+    
     #VAE_DQN
     tscore = 0
     #vae_dqn = VAE_DQN_CNN().cuda()
@@ -138,6 +145,7 @@ def main():
     acc = 0
     pre_step = 0
     if params['restore']:
+        print('restore')
         agent.model_vae.load_state_dict(torch.load(params['save_path_checkpoint_vae']))
         agent.model_dqn.load_state_dict(torch.load(params['save_path_checkpoint_dqn']))
     for i in range(100000):
@@ -167,7 +175,7 @@ def main():
         pre_step = agent.step
         f.close()
     print(tscore/1000)
-    """
+    
     """
     #VAE
     tscore = 0

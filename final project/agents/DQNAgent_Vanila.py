@@ -1,7 +1,7 @@
 from agents.agents import agent
 from random import randint, uniform
 import random
-from memory import ReplayBuffer
+from memory import ReplayBuffer, PrioritizedReplayBuffer
 from copy import deepcopy
 import torch
 from torch import nn, optim
@@ -15,7 +15,7 @@ device = torch.device("cuda")
 class DQNAgent_Vanila(agent):
     def __init__(self, model, opt, learning = True):
         super().__init__()
-        self.memory = ReplayBuffer(3000)
+        self.memory = PrioritizedReplayBuffer(3000, 0.6)
         self.previous_state = None
         self.previous_action = None
         self.previous_legal_actions = None
@@ -23,17 +23,19 @@ class DQNAgent_Vanila(agent):
         self.model = model
         self.opt = opt
         self.loss = 0
-        self.batch_size = 64
+        self.batch_size = 32
         self.test_q = 0
         self.max_tile = 0
+        self.beta = 0.7
+        self.reconver_step = 0
         #self.test_q = 0
-        self.epsilon_schedule = LinearSchedule(2000000,
+        self.epsilon_schedule = LinearSchedule(100000,
                                                initial_p=0.99,
                                                final_p=0.01)
         self.learning = learning
 
     def should_explore(self):
-        self.epsilon = self.epsilon_schedule.value(self.step)
+        self.epsilon = self.epsilon_schedule.value(self.step + self.reconver_step)
         return random.random() < self.epsilon
 
     def action(self):
@@ -41,8 +43,6 @@ class DQNAgent_Vanila(agent):
             self.step += 1
         
         legalActions = self.legal_actions(deepcopy(self.gb.board))
-        if len(legalActions) == 0:
-            print(111111111111111111111111111111111111111)
         board = deepcopy(self.gb.board)
         board = oneHotMap(board)
 
@@ -57,8 +57,8 @@ class DQNAgent_Vanila(agent):
             choice = self.actions[action]
         if self.learning:
             reward = self.gb.currentReward
-            #if reward != 0:
-            #    reward = np.log2(reward)
+            if reward != 0:
+                reward = np.log2(reward)
             if (self.previous_state is not None and
                     self.previous_action is not None):
                 self.memory.add(self.previous_state,
@@ -111,10 +111,10 @@ class DQNAgent_Vanila(agent):
     def update(self):
         if self.step < self.batch_size:
             return
-        
-        batch = self.memory.sample(self.batch_size)
+
+        batch = self.memory.sample(self.batch_size, self.beta)
         (states, actions, legal_actions, reward, next_legal_actions, next_states,
-         is_terminal) = batch
+         is_terminal, weights, batch_idxes) = batch
 
         terminal = torch.tensor(is_terminal).type(torch.cuda.FloatTensor)
         reward = torch.tensor(reward).type(torch.cuda.FloatTensor)
@@ -123,12 +123,12 @@ class DQNAgent_Vanila(agent):
         # Current Q Values
 
         _, q_values = self.predict_batch(states)
-        # batch_index = torch.arange(self.batch_size,
-        #                            dtype=torch.long)
+        batch_index = torch.arange(self.batch_size,
+                                    dtype=torch.long)
         #print(actions)
         #print(q_values)
         
-        q_values = q_values[:, actions]
+        q_values = q_values[batch_index, actions]
         #print(q_values)
         # Calculate target
         q_actions_next, q_values_next = self.predict_batch(next_states, legalActions = next_legal_actions)
@@ -156,6 +156,10 @@ class DQNAgent_Vanila(agent):
 
         self.loss += loss.item() / len(states)
 
+        # Update priorities
+        td_errors = q_values - q_target
+        new_priorities = torch.abs(td_errors) + 1e-6  # prioritized_replay_eps
+        self.memory.update_priorities(batch_idxes, new_priorities.data)
 
     def predict_batch(self, input, legalActions = None):
 
@@ -179,9 +183,6 @@ class DQNAgent_Vanila(agent):
                 q_values[0, action] = -100000000
         
         action = torch.argmax(q_values)
-        if int(action.item()) not in legalActions:
-            print(legalActions, q_values, action)
-            print("!!!!!!!!!!!!!!!!!!!!!!!!!")
         return action.item(), q_values
 
     def legal_actions(self, copy_gb):

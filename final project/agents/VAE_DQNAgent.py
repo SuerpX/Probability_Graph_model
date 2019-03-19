@@ -1,7 +1,7 @@
 from agents.agents import agent
 from random import randint, uniform
 import random
-from memory import ReplayBuffer
+from memory import ReplayBuffer, PrioritizedReplayBuffer
 from copy import deepcopy
 import torch
 from torch import nn, optim
@@ -15,7 +15,7 @@ device = torch.device("cuda")
 class VAE_DQNAgent(agent):
     def __init__(self, model, opt, learning = True):
         super().__init__()
-        self.memory = ReplayBuffer(3000)
+        self.memory = PrioritizedReplayBuffer(3000, 0.6)
         self.previous_state = None
         self.previous_action = None
         self.previous_legal_actions = None
@@ -26,13 +26,14 @@ class VAE_DQNAgent(agent):
         self.opt_dqn = opt[1]
         self.loss_vae = 0
         self.loss_dqn = 0
-        self.batch_size = 64
+        self.batch_size = 32
         self.max_tile = 0
         self.totalCorrect = 0
         self.total = 0
         self.acc = 0
+        self.beta = 0.7
         #self.test_q = 0
-        self.epsilon_schedule = LinearSchedule(2000000,
+        self.epsilon_schedule = LinearSchedule(1500000,
                                                initial_p=0.99,
                                                final_p=0.01)
         self.learning = learning
@@ -46,8 +47,6 @@ class VAE_DQNAgent(agent):
             self.step += 1
         
         legalActions = self.legal_actions(deepcopy(self.gb.board))
-        if len(legalActions) == 0:
-            print(111111111111111111111111111111111111111)
         board = deepcopy(self.gb.board)
         board = oneHotMap(board)
 
@@ -133,9 +132,9 @@ class VAE_DQNAgent(agent):
         if self.step < self.batch_size:
             return
         
-        batch = self.memory.sample(self.batch_size)
+        batch = self.memory.sample(self.batch_size, self.beta)
         (states, actions, legal_actions, reward, next_legal_actions, next_states,
-         is_terminal) = batch
+         is_terminal, weights, batch_idxes) = batch
         batch_idx = 1
 
         terminal = torch.tensor(is_terminal).type(torch.cuda.FloatTensor)
@@ -144,12 +143,12 @@ class VAE_DQNAgent(agent):
         next_states = torch.from_numpy(next_states).type(torch.FloatTensor).cuda().view(-1, 17, 4, 4)
         # Current Q Values
         q_actions, q_values, mu, logvar = self.predict_batch(states)
-        # batch_index = torch.arange(self.batch_size,
-        #                            dtype=torch.long)
+        batch_index = torch.arange(self.batch_size,
+                                    dtype=torch.long)
         #print(actions)
         #print(q_values)
         #self.test_q = q_values
-        q_values = q_values[:, actions]
+        q_values = q_values[batch_index, actions]
         #print(q_values)
 
         # Calculate target
@@ -176,6 +175,11 @@ class VAE_DQNAgent(agent):
         self.loss_dqn += loss_dqn.item() / len(states)
 
 
+        # Update priorities
+        td_errors = q_values - q_target
+        new_priorities = torch.abs(td_errors) + 1e-6  # prioritized_replay_eps
+        self.memory.update_priorities(batch_idxes, new_priorities.data)
+        
     def predict_batch(self, input, legalActions = None):
 
         q_values, mu, logvar = self.model_dqn(input)
