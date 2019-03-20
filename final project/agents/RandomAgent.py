@@ -12,7 +12,7 @@ from utility import normalization, oneHotMap, reverseOneHotMap, loss_function
 import tensorflow as tf
 device = torch.device("cuda")
 class randomAgent(agent):
-    def __init__(self, model, opt):
+    def __init__(self, model, opt, isUpdate = True):
         super().__init__()
         #print(common.prioritized_memory.memory)
         self.memory = ReplayBuffer(500)
@@ -23,6 +23,7 @@ class randomAgent(agent):
         self.loss = 0
         self.batch_size = 64
         self.opt = opt
+        self.isUpdate = isUpdate
     def action(self):
         self.step += 1
         a = self.actions[randint(0, 3)]
@@ -42,7 +43,8 @@ class randomAgent(agent):
         self.previous_state = board
         self.previous_action = a
         
-        self.update()
+        if self.isUpdate:
+            self.update()
         return a
     
     def update(self):

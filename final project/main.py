@@ -36,13 +36,13 @@ def main():
     # 'epoch' : 2588,
     # 'step' : 552907
     # }
-    params = {'save_path_checkpoint_vae': 'weights/last_weight_vae(vae_dqn).pt',
-    'save_path_checkpoint_dqn': 'weights/last_weight_dqn(vae_dqn).pt',
-    'save_path': 'results/result_vae_dqn.txt', 
-    'model_vae': VAE_CNN, 
-    'model_dqn': VAE_DQN_CNN, 
-    'agent_vae_dqn': VAE_DQNAgent,
-    'restore': False}
+    # params = {'save_path_checkpoint_vae': 'weights/last_weight_vae(vae_dqn).pt',
+    # 'save_path_checkpoint_dqn': 'weights/last_weight_dqn(vae_dqn).pt',
+    # 'save_path': 'results/result_vae_dqn.txt', 
+    # 'model_vae': VAE_CNN, 
+    # 'model_dqn': VAE_DQN_CNN, 
+    # 'agent_vae_dqn': VAE_DQNAgent,
+    # 'restore': False}
     """
 
     #DQN
@@ -127,7 +127,7 @@ def main():
         f.close()
     print(tscore/1000)
     """
-    
+    """
     #VAE_DQN
     tscore = 0
     #vae_dqn = VAE_DQN_CNN().cuda()
@@ -175,7 +175,7 @@ def main():
         pre_step = agent.step
         f.close()
     print(tscore/1000)
-    
+    """
     """
     #VAE
     tscore = 0
@@ -196,6 +196,7 @@ def main():
     #summary_writer = tf.summary.FileWriter
     #tf.summary.scalar("train_loss", train_loss)
     for i in range(100000):
+        f = open('results/result_vae.txt', 'a')
         vae_dqn.train()
         gb = gameboard(4, isPrint = False)
         agent.play(gb)
@@ -212,7 +213,33 @@ def main():
         gb = gameboard(4, isPrint = False)
         ta.play(gb)
         acc += ta.acc
-        print("epoch: {}, loss: {}, acc: {}".format(i, agent.loss / agent.step, acc / (i % 100 + 1)), end = '\r')
+        p = "epoch: {}, loss: {}, acc: {}".format(i, agent.loss / agent.step, acc / (i % 100 + 1))
+        f.write(p + '\n')
+        print(p, end = '\r')
+        f.close()
+
     print(tscore/1000)
     """
+    """
+    #Random agent
+    agent = randomAgent(None, None, isUpdate = False)
+    #summary_writer = tf.summary.FileWriter
+    #tf.summary.scalar("train_loss", train_loss)
+    for i in range(14000):
+        f = open('results/random.txt', 'a')
+        test_score = 0
+        test_num = 30
+        max_tile = 0
+        for _ in range(test_num):
+            gb = gameboard(4, isPrint = False)
+            agent.play(gb)
+            if np.max(gb.board) > max_tile:
+            	max_tile = np.max(gb.board)
+            test_score += gb.score
+        print(i)
+        print_t = "\ntest score: {}, max tile: {}\n".format(test_score / test_num, max_tile)
+        print(print_t, end = '')
+        f.write(print_t)
+        f.close()
+	"""
 main()
