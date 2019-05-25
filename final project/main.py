@@ -36,13 +36,13 @@ def main():
     # 'epoch' : 2588,
     # 'step' : 552907
     # }
-    # params = {'save_path_checkpoint_vae': 'weights/last_weight_vae(vae_dqn).pt',
-    # 'save_path_checkpoint_dqn': 'weights/last_weight_dqn(vae_dqn).pt',
-    # 'save_path': 'results/result_vae_dqn.txt', 
-    # 'model_vae': VAE_CNN, 
-    # 'model_dqn': VAE_DQN_CNN, 
-    # 'agent_vae_dqn': VAE_DQNAgent,
-    # 'restore': False}
+    params = {'save_path_checkpoint_vae': 'weights/last_weight_vae(vae_dqn).pt',
+    'save_path_checkpoint_dqn': 'weights/last_weight_dqn(vae_dqn).pt',
+    'save_path': 'results/result_vae_dqn.txt', 
+    'model_vae': VAE_CNN, 
+    'model_dqn': VAE_DQN_CNN, 
+    'agent_vae_dqn': VAE_DQNAgent,
+    'restore': False}
     """
 
     #DQN
@@ -127,13 +127,14 @@ def main():
         f.close()
     print(tscore/1000)
     """
-    """
+    
     #VAE_DQN
     tscore = 0
     #vae_dqn = VAE_DQN_CNN().cuda()
     vae = params['model_vae']().cuda()
     vae_dqn = params['model_dqn'](vae.encoder).cuda()
-    vae_dqn = [vae, vae_dqn]
+    vae_dqn_target = params['model_dqn'](vae.encoder).cuda()
+    vae_dqn = [vae, vae_dqn, vae_dqn_target]
     
     #optimizer = optim.Adam(vae_dqn.parameters(), lr=1e-4)
     optimizers = [optim.Adam(vae_dqn[0].parameters(), lr=1e-4),optim.Adam(vae_dqn[1].parameters(), lr=1e-4)]
@@ -148,6 +149,7 @@ def main():
         print('restore')
         agent.model_vae.load_state_dict(torch.load(params['save_path_checkpoint_vae']))
         agent.model_dqn.load_state_dict(torch.load(params['save_path_checkpoint_dqn']))
+        agent.model_dqn_target.load_state_dict(torch.load(params['save_path_checkpoint_dqn']))
     for i in range(100000):
         f = open(params['save_path'], 'a')
         if i % 50 == 0:
@@ -175,7 +177,7 @@ def main():
         pre_step = agent.step
         f.close()
     print(tscore/1000)
-    """
+    
     """
     #VAE
     tscore = 0

@@ -15,13 +15,14 @@ device = torch.device("cuda")
 class VAE_DQNAgent(agent):
     def __init__(self, model, opt, learning = True):
         super().__init__()
-        self.memory = PrioritizedReplayBuffer(3000, 0.6)
+        self.memory = PrioritizedReplayBuffer(100000, 0.6)
         self.previous_state = None
         self.previous_action = None
         self.previous_legal_actions = None
         self.step = 0
         self.model_vae = model[0]
         self.model_dqn = model[1]
+        self.model_dqn_target = model[2]
         self.opt_vae = opt[0]
         self.opt_dqn = opt[1]
         self.loss_vae = 0
@@ -33,7 +34,7 @@ class VAE_DQNAgent(agent):
         self.acc = 0
         self.beta = 0.7
         #self.test_q = 0
-        self.epsilon_schedule = LinearSchedule(1500000,
+        self.epsilon_schedule = LinearSchedule(500000,
                                                initial_p=0.99,
                                                final_p=0.01)
         self.learning = learning
@@ -152,7 +153,7 @@ class VAE_DQNAgent(agent):
         #print(q_values)
 
         # Calculate target
-        q_actions_next, q_values_next, _, _ = self.predict_batch(next_states, legalActions = next_legal_actions)
+        q_actions_next, q_values_next, _, _ = self.predict_batch_target(next_states, legalActions = next_legal_actions)
         q_max = q_values_next.max(1)[0].detach()
         q_max = (1 - terminal) * q_max
 
@@ -174,15 +175,33 @@ class VAE_DQNAgent(agent):
         self.loss_vae += loss_vae.item() / len(states)
         self.loss_dqn += loss_dqn.item() / len(states)
 
-
         # Update priorities
         td_errors = q_values - q_target
         new_priorities = torch.abs(td_errors) + 1e-6  # prioritized_replay_eps
         self.memory.update_priorities(batch_idxes, new_priorities.data)
         
+        if self.step % 4000 == 0:
+            self.model_dqn_target.load_state_dict(self.model_dqn.state_dict())
+        
     def predict_batch(self, input, legalActions = None):
 
         q_values, mu, logvar = self.model_dqn(input)
+        
+        if legalActions is None:
+            values, q_actions = q_values.max(1)
+        else:
+            q_values_true = torch.full((self.batch_size, 4), -100000000).cuda()
+            for i, action in enumerate(legalActions):
+                q_values_true[i, action] = q_values[i,action]
+            values, q_actions = q_values_true.max(1)
+            q_values = q_values_true
+            #print(q_values_true)
+
+        return q_actions, q_values, mu, logvar
+    
+    def predict_batch_target(self, input, legalActions = None):
+
+        q_values, mu, logvar = self.model_dqn_target(input)
         
         if legalActions is None:
             values, q_actions = q_values.max(1)
